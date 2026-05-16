@@ -53,6 +53,9 @@
   - sequential operations, $\sigma(n)$
   - parallel operations, $\varphi(n)$
   - communication, $\kappa(n, p)$
+
+    <img src="figures/total-time.png" alt="Total execution time" width="40%">
+
 - in case of ideal work distribution among workers
 
   $S(n,p) = \frac{t_s(n)}{t_p(n,p)} = \frac{\sigma(n)+\varphi(n)}{\sigma(n)+\varphi(n)/p + \kappa(n,p)}$
@@ -91,6 +94,8 @@
   - constant problem size
   - focus of parallelization is to reduce the total time
 - example: $n=10$, $\sigma(n) = 2$, $\varphi(n) = 8$, $f=0.2$, $p=1, 2, 4, 8$
+  
+  <img src="figures/amdahl.png" alt="Amdahl law example" width="50%">
 
 ## Gustafson-Barsis’s Law
 
@@ -103,11 +108,16 @@
 
 - example: $n=10$, $\sigma(n) = 2$, $\varphi(n) = 8$, $f=0.2$, $p=1, 2, 4, 8$
 
+  <img src="figures/gustafson-barsis.png" alt="Gustafson-Barsis law example" width="50%">
+
 ## Work-span Model
 
 - optimistic assumptions in previous speedup computation
   - all work that can be parallelized cannot be ideally parallelized
 - tasks presented as direct acyclic graph
+
+  <img src="figures/work-span-dag.png" alt="Work-span model example" width="35%">
+
   - ignores communication and memory access
   - assumes greedy scheduling
     - work is computation time of serial machine, $t_1(n) = t_s(n)$
@@ -140,9 +150,13 @@
   $\frac{1}{\frac{t_{\infty}(n)}{t_1(n)} + \frac{1}{p}} \leq S(n,p) \leq \min\left(p, \frac{t_1(n)}{t_{\infty}(n)}\right)$
 
 - example: 7 units of work, execution follows direct-acyclic graph above
+
+   <img src="figures/work-span-speedup.png" alt="Work-span speedup limits" width="50%">
+
   - red: upper limit
   - yellow: lower limit
   - blue: Amdahl, $f=\frac{2}{7}$ (all but first and last task can be executed in parallel)
+ 
 
 ## Parallel slack
 
@@ -181,6 +195,10 @@
   
     $\frac{M(g(p)}{p}$
 
+  - iso-efficiency and memory constraints
+
+   <img src="figures/iso-efficiency.png" alt="Iso-efficiency and memory constraints" width="50%">
+
 - example: reduce with tiling
   - use serial algorithm where possible
   - do tree-like reduction to reduce communication costs
@@ -205,6 +223,9 @@
     - additional stage with $r$ reductions at the very beginning to come to the previous scheme
     - total execution time equals $t_p(n) = (\chi+\lambda)\lceil\log_2 n\rceil$
   - tiled parallel reduction using $p$ tasks
+  
+    <img src="figures/reduce-tiling.png.png" alt="Tiled reduce" width="65%">
+
     - each task performs $\lceil n/p \rceil -1$ sequential reduce operations
     - intermediate results are reduced by three-like scheme in $\lceil\log_2 p\rceil$ steps
     - total execution time equals $t_p(n,p) = \chi\left(\left\lceil \frac{n}{p} \right\rceil - 1\right) + (\chi + \lambda)\lceil \log_2 p \rceil$
@@ -224,4 +245,4 @@
       - suppose that the number of workers and number of operands are doubled
         - quantity of work per processors remains equal, $\chi\left(\left\lceil\frac{2n}{2p}\right\rceil - 1\right) = \chi\left(\left\lceil\frac{n}{p}\right\rceil - 1\right)$
         - one additional reduction step is required, $(\chi + \lambda)\lceil\log_2 2p\rceil = (\chi + \lambda)(\lceil\log_2 p\rceil + 1)$
-        - doubling number of operands is not enough - to satisfy $n_1=C''p\log_2 p$ and $n_2=C''2p\log_2 (2p)$, we should have $n_2 = 2n_1 + 2C''p$ operands
+      - when doubling number of workers ($p_2=2p_1$), doubling number of operands ($n_2 = 2 n_1$) is not enough - to satisfy relations $n_1=C''p_1\log_2 p_1$ and $n_2=C''p_2\log_2 p_2$, we should more than double operands, $n_2 = 2n_1 + 2C''p$
