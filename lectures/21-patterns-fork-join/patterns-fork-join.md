@@ -210,11 +210,61 @@
 
 ### Matrix Multiply-and-add
 
+- $\mathbf{C}_{m\times n} = \mathbf{C}_{m\times n} + \mathbf{A}_{m\times k} \times \mathbf{B}_{k \times n}$
 - similar to Strassen algorithm
 - if matrices are small, use serial multiplication
 - if matrices are large, divide multiplication to two parts
-- take into account the following identities
+- the goal is to keep the matrices quadratic
+  - always split the longest axis
+    - when $m$ is the longest
+        $\left[ \genfrac{}{}{0pt}{}{\mathbf{A}_0}{\mathbf{A}_1} \right] \times \mathbf{B} = \left[ \genfrac{}{}{0pt}{}{\mathbf{A}_0\times\mathbf{B}}{\mathbf{A}_1\times\mathbf{B}} \right]$
+    - when $n$ is the longest
+        $\left[\mathbf{A} \right] \times \left[ \mathbf{B}_0] \ \mathbf{B}_1 \right] = \left[ \mathbf{A}\times \mathbf{B}_0 \ \mathbf{A}\times \mathbf{B}_1 \right]$
+    - when $k$ is the longest
+        $\left[ \mathbf{A}_0 \ \mathbf{A}_1 \right] \times \left[ \genfrac{}{}{0pt}{}{\mathbf{B}_0}{\mathbf{B}_1} \right] = \left[ \mathbf{A}_0 \times \mathbf{B}_0 + \mathbf{A}_1 \times \mathbf{B}_1 \right]$
+  - this way cache locality is maximized during multiplication
+- pseudo code
+  ```C
+  // C[m][n] += A[m][k] * B[k][n]
+  void MultiplyAdd(double **C, double **A, double **B) {
+    if (less then CUTOFF operations are required to compute C) {
+        MultiplyAddNonRecursive(C, A, B);
+    }
+    else if (n >= max(m, k)) {
+        C = [C0 C1];
+        B = [B0 B1];
+        #pragma omp task
+        MultiplyAdd(C0, A, B0);
 
-  $\left[\mathbf{A} \right] \times \left[ \mathbf{B}_0] | \mathbf{B}_1 \right] = \left[ \mathbf{A}\times \mathbf{B}_0 | \mathbf{A}\times \mathbf{B}_1 \right]$
+        MultiplyAdd(C1, A, B1);
+        #pragma omp taskwait
+    }
+    else if (m >= k) {
+        C = [C0
+             C1];
+        A = [A0
+             A1];
+        #pragma omp task
+        MultiplyAdd(C0, A0, B);
 
-  $\left[ \genfrac{}{}{0pt}{}{\mathbf{A}_0}{\mathbf{A}_1} \right] \times \mathbf{B} = \left[{\mathbf{A}_0\times\mathbf{B} \over \mathbf{A}_1\times\mathbf{B}} \right]$
+        MultiplyAdd(C1, A1, B);
+        #pragma omp taskwait
+    }
+    else {
+        A = [A0 A1];
+        B = [B0
+             B1];
+        MultiplyAdd(C, A0, B0);
+        MultiplyAdd(C, A1, B1);
+    }
+  }
+  ```
+  
+- serial algorithm
+  - time complexity: $T_1 = O(mnk)$
+- parallel algorithm
+  - time complexity: $T_{\infty} = \log_2 m + \log_2 n + k$
+  - on the finest level each task is doing the multiplication of one element in matrix $\mathbf{C}$
+  - the first two terms give the number of partitions
+  - the last terms gives the time needed to get scalar product for one element of matrix $\mathbf{C}$
+  - after partitioning, we can compute products in parallel
