@@ -215,11 +215,6 @@
 - if matrices are large, divide multiplication to two parts
 - take into account the following identities
 
-  $\left[\mathbf{A} \right] \times \left[ \mathbf{B}_0]\ \mathbf{B}_1 \right] = \left[ \mathbf{A}\times \mathbf{B}_0\ \mathbf{A}\times \mathbf{B}_1 \right]$
+  $\left[\mathbf{A} \right] \times \left[ \mathbf{B}_0] | \mathbf{B}_1 \right] = \left[ \mathbf{A}\times \mathbf{B}_0 | \mathbf{A}\times \mathbf{B}_1 \right]$
 
-  $$\stackrel{A}{B}$$
-
-  $$\begin{pmatrix} a & b \\ c & d \end{pmatrix}$$
-
-  $$\\begin{array}{ccc} a & b & c \\d & e & f \\g & h & i\end{array}$$
-  
+  $\left[{\mathbf{A}_0\over \mathbf{A}_1}\right] \times \mathbf{B} = \left[{\mathbf{A}_0\times\mathbf{B} \over \mathbf{A}_1\times\mathbf{B}} \right]$
