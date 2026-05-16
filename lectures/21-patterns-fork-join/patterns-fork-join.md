@@ -103,7 +103,7 @@
     - each task creates only one sub-task
     - main tasks performs some computation on its own
 
-### Choosing Base Cases
+## Choosing Base Cases
 
 - when recursion goes to deep, scheduling overheads tend to swamp useful work
 - two separate base cases at different levels
@@ -117,13 +117,13 @@
   - scheduler has no flexibility to balance load; even if problem is well balanced, operating system can cause issues
   - better is to over-decompose the problem and create some parallel slack
 
-### Algorithm Complexity
+## Algorithm Complexity
 
-- majority of problems can be described with relation
+- majority of divide-and-conquer problems can be described with relation
 
   $T(N) = at({n\over b}) + cn^d\quad, \quad T(1)=\mathrm{e}$
 
-- task on level $l$ has $cn^d$ work itself and task on level $l+1$ has $ac(\frac{n}{b})^d$ work itself, giving proportion
+- task on level $l$ has $cn^d$ work itself and task on level $l+1$ has $ac(\frac{n}{b})^d$ work itself, leading to proportion
   $r = \frac{ac(\frac{n}{b})^d}{cn^d} = \frac{a}{b^d}$
 - asymptotic solutions
   - case 1: $r > 1$: $T(n) = O(n^{\log_b a})$
@@ -195,3 +195,24 @@
     - coefficients of $a(x)$, $b(x)$, and $c(x)$ can be used on all levels of recursion
     - additional memory is needed to store sum of coefficients ($a_1+a_0$ and $b_1+b_0$ in the example) and their product $t$
     - $M_{\infty}(n) = 3 M_{\infty}(\frac{n}{2}) + O(n)\quad, \quad M_{\infty}(1) = O(1)$
+
+## Cache-oblivious Programming
+
+- memory bandwidth constraints often limit speedup
+- in such cases it is important to reuse data in cache
+  - cache sizes vary among platforms, tailoring an algorithm to cache size becomes complicated
+  - suboptimal solution which works well is cache-oblivious programming
+    - cache paranoid programming
+    - code is written to work well regardless of the actual cache structure
+    - divide-and-conquer approach results in good data locality at multiple scales
+      - with division the problem first fits to outermost cache
+      - with further divisions it sooner or later fits to the inner cache
+
+### Matrix Multiply-and-add
+
+- similar to Strassen algorithm
+- if matrices are small, use serial multiplication
+- if matrices are large, divide multiplication to two parts
+- take into account the following identities
+
+  $\left[ A \right] \times \left[ B_0 B_1 \right] = \left[ A\times B_0 A\times \mathbf{B}_1 \right]$
