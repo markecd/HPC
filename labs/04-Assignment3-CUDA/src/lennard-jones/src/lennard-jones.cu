@@ -200,24 +200,26 @@ __global__ void compute_forces_kernel(Particle *particles, unsigned int n, doubl
     __shared__ double shared_pe[BLOCK_SIZE];
     
     double fx = 0.0, fy = 0.0, pe = 0.0;
-
     double v_shift = 4.0 * EPSILON * (pow(SIGMA / R_CUT, 12.0) - pow(SIGMA / R_CUT, 6.0));
 
     int i = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (i < n){
-        Particle current_particle = particles[i];
+    Particle current_particle;
+    if (i < n) current_particle = particles[i];
 
-        int numTiles = (n + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
-        for (int t = 0; t < numTiles; t++){
 
-            int j = t * BLOCK_SIZE + threadIdx.x;
-            if(j < n){
-                tile[threadIdx.x] = particles[j];
-            }
-            __syncthreads();
+    int numTiles = (n + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
+    for (int t = 0; t < numTiles; t++){
+
+        int j = t * BLOCK_SIZE + threadIdx.x;
+        if(j < n){
+            tile[threadIdx.x] = particles[j];
+        }
+        __syncthreads();
+        
+        if(i < n){
             int tileEnd = min(BLOCK_SIZE, n - t * BLOCK_SIZE);
             for (int k = 0; k < tileEnd; k++){
                 int globalJ = t * BLOCK_SIZE + k;
@@ -244,12 +246,14 @@ __global__ void compute_forces_kernel(Particle *particles, unsigned int n, doubl
                 double vij = 4.0 * EPSILON * (pow(sr, 12.0) - pow(sr, 6.0)) - v_shift;
                 pe += 0.5 * vij;
             }
-            __syncthreads();
         }
+        __syncthreads();
+    } 
 
+    if (i < n){
         particles[i].fx = fx;
         particles[i].fy = fy;
-    } 
+    }
 
     shared_pe[threadIdx.x] = pe;
     __syncthreads();
@@ -339,7 +343,11 @@ SimulationResult run_simulation(Particle *particles, unsigned int n, unsigned in
     int gridSize = (n + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
     if (use_gpu){
+        fprintf(stderr, "DEBUG: attempting cudaMalloc...\n");
+        fflush(stderr);
         checkCudaErrors(cudaMalloc(&d_particles, n * sizeof(Particle)));
+        fprintf(stderr, "DEBUG: cudaMalloc OK\n");
+        fflush(stderr);
         checkCudaErrors(cudaMalloc(&d_pe, sizeof(double)));
         checkCudaErrors(cudaMemcpy(d_particles, particles, n * sizeof(Particle), cudaMemcpyHostToDevice));
         checkCudaErrors(cudaMemset(d_pe, 0, sizeof(double)));
