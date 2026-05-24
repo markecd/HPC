@@ -20,6 +20,7 @@ int main(int argc, char **argv) {
     Particle *particles = NULL;
     SimulationResult result;
 
+    int use_gpu = 0;
     // read command line arguments
     if (argc > 1) {
         n = (unsigned int)strtoul(argv[1], NULL, 10);
@@ -28,6 +29,9 @@ int main(int argc, char **argv) {
         nsteps = (unsigned int)strtoul(argv[2], NULL, 10);
     }
     if (argc > 3) {
+        use_gpu = atoi(argv[3]);
+    }
+    if(argc > 4) {
         print_help(argv[0]);
         return 1;
     }
@@ -59,7 +63,7 @@ int main(int argc, char **argv) {
 
     //run simulation and measure time
     double start = omp_get_wtime();
-    result = run_simulation(particles, n, nsteps, box_size, 1);
+    result = run_simulation(particles, n, nsteps, box_size, 1, use_gpu);
     double stop = omp_get_wtime();
     printf("\nFinished simulation.\n");
     printf("Final KE: %10.4f | delta: %+.4f\n", result.final_kinetic, result.final_kinetic - result.start_kinetic);
