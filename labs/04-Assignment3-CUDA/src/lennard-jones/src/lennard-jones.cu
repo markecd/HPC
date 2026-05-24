@@ -279,6 +279,42 @@ double leapfrog_step(Particle *particles, unsigned int n, double box_size) {
     return pe;
 }
 
+__global__ void leapfrog_first_half_kernel(Particle *p, unsigned int n) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    p[i].vx += 0.5 * DT * p[i].fx;
+    p[i].vy += 0.5 * DT * p[i].fy;
+    p[i].x  += DT * p[i].vx;
+    p[i].y  += DT * p[i].vy;
+}
+
+__global__ void leapfrog_second_half_kernel(Particle *p, unsigned int n) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    p[i].vx += 0.5 * DT * p[i].fx;
+    p[i].vy += 0.5 * DT * p[i].fy;
+}
+
+double leapfrog_step_kernel(Particle *particles, unsigned int n, double box_size, Particle *h_particles, double *d_pe, int gridSize) {
+    leapfrog_first_half_kernel<<<gridSize, BLOCK_SIZE>>>(particles, n);
+    cudaDeviceSynchronize();
+
+    cudaMemcpy(h_particles, particles, n * sizeof(Particle), cudaMemcpyDeviceToHost);
+    wrap_positions(h_particles, n, box_size);
+    cudaMemcpy(particles, h_particles, n * sizeof(Particle), cudaMemcpyHostToDevice);
+
+    cudaMemset(d_pe, 0, sizeof(double));
+    compute_forces_kernel<<<gridSize, BLOCK_SIZE>>>(particles, n, box_size, d_pe);
+    cudaDeviceSynchronize();
+
+    leapfrog_second_half_kernel<<<gridSize, BLOCK_SIZE>>>(particles, n);
+    cudaDeviceSynchronize();
+
+    double pe;
+    cudaMemcpy(&pe, d_pe, sizeof(double), cudaMemcpyDeviceToHost);
+    return pe;
+}
+
 SimulationResult run_simulation(Particle *particles, unsigned int n, unsigned int nsteps, double box_size, int log_steps, int use_gpu) {
     
     SimulationResult out;
@@ -317,30 +353,12 @@ SimulationResult run_simulation(Particle *particles, unsigned int n, unsigned in
 #endif
 
     for (unsigned int step = 0; step < nsteps; step++) {
-        for (unsigned int i = 0; i < n; ++i) {
-                Particle *p = &particles[i];
-                p->vx += 0.5 * DT * p->fx;
-                p->vy += 0.5 * DT * p->fy;
-                p->x  += DT * p->vx;
-                p->y  += DT * p->vy;
-        }
-        wrap_positions(particles, n, box_size);
 
         if (use_gpu) {
-            cudaMemcpy(d_particles, particles, n * sizeof(Particle), cudaMemcpyHostToDevice);
-            cudaMemset(d_pe, 0, sizeof(double));
-            compute_forces_kernel<<<gridSize, BLOCK_SIZE>>>(d_particles, n, box_size, d_pe);
-            cudaDeviceSynchronize();
+            out.final_potential = leapfrog_step_kernel(d_particles, n, box_size, particles, d_pe, gridSize);
             cudaMemcpy(particles, d_particles, n * sizeof(Particle), cudaMemcpyDeviceToHost);
-            cudaMemcpy(&out.final_potential, d_pe, sizeof(double), cudaMemcpyDeviceToHost);
         } else {
-            out.final_potential = compute_forces(particles, n, box_size);
-        }
-
-        for (unsigned int i = 0; i < n; ++i) {
-            Particle *p = &particles[i];
-            p->vx += 0.5 * DT * p->fx;
-            p->vy += 0.5 * DT * p->fy;
+            out.final_potential = leapfrog_step(particles, n, box_size);
         }
 
         out.final_kinetic = compute_ke(particles, n);
