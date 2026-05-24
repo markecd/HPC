@@ -18,6 +18,7 @@ extern "C" {
 #define FRAME_PARTICLE_RADIUS 2
 #define FRAME_DELAY 3
 #define GIF_FILE "simulation.gif"
+#define BLOCK_SIZE 256
 
 
 
