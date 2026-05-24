@@ -8,6 +8,7 @@
 #SBATCH --gpus=1
 #SBATCH --nodes=1
 #SBATCH --output=lj_out.log
+#SBATCH --time=03:00:00 
 
 #LOAD MODULES 
 module load CUDA

@@ -132,6 +132,18 @@ void wrap_positions(Particle *particles, unsigned int n, double box_size) {
     }
 }
 
+__global__ void wrap_positions_kernel(Particle *p, unsigned int n, double box_size) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    
+    double wx = fmod(p[i].x, box_size);
+    double wy = fmod(p[i].y, box_size);
+    if (wx < 0.0) wx += box_size;
+    if (wy < 0.0) wy += box_size;
+    p[i].x = wx;
+    p[i].y = wy;
+}
+
 // shift potential to ensure it goes to zero at the cutoff distance, improving energy conservation
 double compute_v_shift(void) {
     return 4.0 * EPSILON * (pow(SIGMA / R_CUT, 12.0) - pow(SIGMA / R_CUT, 6.0));
@@ -295,17 +307,14 @@ __global__ void leapfrog_second_half_kernel(Particle *p, unsigned int n) {
     p[i].vy += 0.5 * DT * p[i].fy;
 }
 
-double leapfrog_step_kernel(Particle *particles, unsigned int n, double box_size, Particle *h_particles, double *d_pe, int gridSize) {
+double leapfrog_step_kernel(Particle *particles, unsigned int n, double box_size, double *d_pe, int gridSize) {
     leapfrog_first_half_kernel<<<gridSize, BLOCK_SIZE>>>(particles, n);
     cudaDeviceSynchronize();
 
-    cudaMemcpy(h_particles, particles, n * sizeof(Particle), cudaMemcpyDeviceToHost);
-    wrap_positions(h_particles, n, box_size);
-    cudaMemcpy(particles, h_particles, n * sizeof(Particle), cudaMemcpyHostToDevice);
+    wrap_positions_kernel<<<gridSize, BLOCK_SIZE>>>(particles, n, box_size);
 
     cudaMemset(d_pe, 0, sizeof(double));
     compute_forces_kernel<<<gridSize, BLOCK_SIZE>>>(particles, n, box_size, d_pe);
-    cudaDeviceSynchronize();
 
     leapfrog_second_half_kernel<<<gridSize, BLOCK_SIZE>>>(particles, n);
     cudaDeviceSynchronize();
@@ -355,19 +364,20 @@ SimulationResult run_simulation(Particle *particles, unsigned int n, unsigned in
     for (unsigned int step = 0; step < nsteps; step++) {
 
         if (use_gpu) {
-            out.final_potential = leapfrog_step_kernel(d_particles, n, box_size, particles, d_pe, gridSize);
-            cudaMemcpy(particles, d_particles, n * sizeof(Particle), cudaMemcpyDeviceToHost);
+            out.final_potential = leapfrog_step_kernel(d_particles, n, box_size, d_pe, gridSize);
         } else {
             out.final_potential = leapfrog_step(particles, n, box_size);
+            out.final_kinetic = compute_ke(particles, n);
+            out.final_total = out.final_kinetic + out.final_potential;
         }
 
-        out.final_kinetic = compute_ke(particles, n);
-        out.final_total = out.final_kinetic + out.final_potential;
-
         if (log_steps) {
-            printf("step=%6u  KE=%12.6f  PE=%12.6f  E=%12.6f\n",
-                   step, out.final_kinetic, 
-                   out.final_potential, out.final_total);
+            if (use_gpu) {
+                cudaMemcpy(particles, d_particles, n * sizeof(Particle), cudaMemcpyDeviceToHost);
+                out.final_kinetic = compute_ke(particles, n);
+                out.final_total = out.final_kinetic + out.final_potential;
+            } 
+            printf("step=%6u  KE=%12.6f  PE=%12.6f  E=%12.6f\n", step, out.final_kinetic, out.final_potential, out.final_total);
         }
     
 
@@ -378,6 +388,14 @@ SimulationResult run_simulation(Particle *particles, unsigned int n, unsigned in
         }
 #endif
     }
+
+    if (use_gpu) {
+        cudaMemcpy(particles, d_particles, n * sizeof(Particle), cudaMemcpyDeviceToHost);
+    }
+
+
+    out.final_kinetic = compute_ke(particles, n);
+    out.final_total = out.final_kinetic + out.final_potential;
 
 #if GENERATE_GIF
     if (gif) {
