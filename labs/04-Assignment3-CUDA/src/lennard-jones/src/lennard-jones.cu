@@ -4,8 +4,8 @@
 #include <string.h>
 
 // Include CUDA headers
-// #include <cuda_runtime.h>
-// #include <cuda.h>
+#include <cuda_runtime.h>
+#include <cuda.h>
 
 
 #include "gifenc.h"
@@ -182,6 +182,78 @@ double compute_forces(Particle *particles, unsigned int n, double box_size) {
     return pe;
 }
 
+__global__ void compute_forces_kernel(Particle *particles, unsigned int n, double box_size, double *d_pe) {
+    __shared__ Particle tile[BLOCK_SIZE];
+    __shared__ double shared_pe[BLOCK_SIZE];
+    
+    double fx = 0.0, fy = 0.0, pe = 0.0;
+
+    double v_shift = 4.0 * EPSILON * (pow(SIGMA / R_CUT, 12.0) - pow(SIGMA / R_CUT, 6.0));
+
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (i < n){
+        Particle current_particle = particles[i];
+
+        int numTiles = (n + BLOCK_SIZE - 1) / BLOCK_SIZE;
+
+        for (int t = 0; t < numTiles; t++){
+
+            int j = t * BLOCK_SIZE + threadIdx.x;
+            if(j < n){
+                tile[threadIdx.x] = particles[j];
+            }
+            __syncthreads();
+
+            int tileEnd = min(BLOCK_SIZE, n - t * BLOCK_SIZE);
+            for (int k = 0; k < tileEnd; k++){
+                int globalJ = t * BLOCK_SIZE + k;
+                if (globalJ == i) continue;
+
+                double dx = current_particle.x - tile[k].x;
+                double dy = current_particle.y - tile[k].y;
+
+                dx -= box_size * nearbyint(dx / box_size);
+                dy -= box_size * nearbyint(dy / box_size);
+
+                // compute Lennard-Jones force and potential energy contribution if particles are within the cutoff distance
+                double r = sqrt(dx * dx + dy * dy);
+                if (r >= R_CUT || r == 0.0) {
+                    continue;
+                }
+
+                double sr = SIGMA / r;
+                double fij = 24.0 * EPSILON * (2.0 * pow(sr, 12.0) - pow(sr, 6.0)) / r;
+
+                fx += fij * dx / r;
+                fy += fij * dy / r;
+
+                double vij = 4.0 * EPSILON * (pow(sr, 12.0) - pow(sr, 6.0)) - v_shift;
+                pe += 0.5 * vij;
+            }
+            __syncthreads();
+        }
+
+        particles[i].fx = fx;
+        particles[i].fy = fy;
+    } 
+
+    shared_pe[threadIdx.x] = pe;
+    __syncthreads();
+
+    for (int stride = BLOCK_SIZE / 2; stride > 0; stride >>=1){
+        if (threadIdx.x < stride){
+            shared_pe[threadIdx.x] += shared_pe[threadIdx.x + stride];
+        }
+        __syncthreads();
+    }
+
+    if (threadIdx.x == 0){
+        atomicAdd(d_pe, shared_pe[0]);
+    }
+}
+
+
 double leapfrog_step(Particle *particles, unsigned int n, double box_size) {
     // update velocities by half a time step, then update positions by a full time step, 
     //and finally update velocities by another half time step to complete the leapfrog integration step
@@ -207,10 +279,27 @@ double leapfrog_step(Particle *particles, unsigned int n, double box_size) {
     return pe;
 }
 
-SimulationResult run_simulation(Particle *particles, unsigned int n, unsigned int nsteps, double box_size, int log_steps) {
+SimulationResult run_simulation(Particle *particles, unsigned int n, unsigned int nsteps, double box_size, int log_steps, int use_gpu) {
     
     SimulationResult out;
-    out.start_potential= compute_forces(particles, n, box_size);
+
+    Particle *d_particles = NULL;
+    double *d_pe = NULL;
+    int gridSize = (n + BLOCK_SIZE - 1) / BLOCK_SIZE;
+
+    if (use_gpu){
+        cudaMalloc(&d_particles, n * sizeof(Particle));
+        cudaMalloc(&d_pe, sizeof(double));
+        cudaMemcpy(d_particles, particles, n * sizeof(Particle), cudaMemcpyHostToDevice);
+        cudaMemset(d_pe, 0, sizeof(double));
+        compute_forces_kernel<<<gridSize, BLOCK_SIZE>>>(d_particles, n, box_size, d_pe);
+        cudaDeviceSynchronize();
+        cudaMemcpy(particles, d_particles, n * sizeof(Particle), cudaMemcpyDeviceToHost);
+        cudaMemcpy(&out.start_potential, d_pe, sizeof(double), cudaMemcpyDeviceToHost);
+    } else {
+        out.start_potential = compute_forces(particles, n, box_size);
+    }
+
     out.start_kinetic = compute_ke(particles, n);
     out.start_total = out.start_kinetic + out.start_potential;
 
@@ -228,20 +317,42 @@ SimulationResult run_simulation(Particle *particles, unsigned int n, unsigned in
 #endif
 
     for (unsigned int step = 0; step < nsteps; step++) {
-        out.final_potential = leapfrog_step(particles, n, box_size);
-        out.final_kinetic = compute_ke(particles, n);
-        out.final_total = out.final_kinetic + out.final_potential;
-        if (log_steps) {
-            printf(
-                "step=%6u  KE=%12.6f  PE=%12.6f  E=%12.6f\n",
-                step,
-                out.final_kinetic,
-                out.final_potential,
-                out.final_total
-            );
+        for (unsigned int i = 0; i < n; ++i) {
+                Particle *p = &particles[i];
+                p->vx += 0.5 * DT * p->fx;
+                p->vy += 0.5 * DT * p->fy;
+                p->x  += DT * p->vx;
+                p->y  += DT * p->vy;
+        }
+        wrap_positions(particles, n, box_size);
+
+        if (use_gpu) {
+            cudaMemcpy(d_particles, particles, n * sizeof(Particle), cudaMemcpyHostToDevice);
+            cudaMemset(d_pe, 0, sizeof(double));
+            compute_forces_kernel<<<gridSize, BLOCK_SIZE>>>(d_particles, n, box_size, d_pe);
+            cudaDeviceSynchronize();
+            cudaMemcpy(particles, d_particles, n * sizeof(Particle), cudaMemcpyDeviceToHost);
+            cudaMemcpy(&out.final_potential, d_pe, sizeof(double), cudaMemcpyDeviceToHost);
+        } else {
+            out.final_potential = compute_forces(particles, n, box_size);
         }
 
+        for (unsigned int i = 0; i < n; ++i) {
+            Particle *p = &particles[i];
+            p->vx += 0.5 * DT * p->fx;
+            p->vy += 0.5 * DT * p->fy;
+        }
+
+        out.final_kinetic = compute_ke(particles, n);
+        out.final_total = out.final_kinetic + out.final_potential;
+
+        if (log_steps) {
+            printf("step=%6u  KE=%12.6f  PE=%12.6f  E=%12.6f\n",
+                   step, out.final_kinetic, 
+                   out.final_potential, out.final_total);
+        }
     
+
 #if GENERATE_GIF
         if (gif && FRAME_EVERY > 0 && (step + 1) % FRAME_EVERY == 0) {
             render_frame_gif(gif, particles, n, box_size);
@@ -255,6 +366,11 @@ SimulationResult run_simulation(Particle *particles, unsigned int n, unsigned in
         ge_close_gif(gif);
     }
 #endif
+
+    if (use_gpu) {
+        cudaFree(d_particles);
+        cudaFree(d_pe);
+    }
 
     out.n = n;
     out.particles = particles;

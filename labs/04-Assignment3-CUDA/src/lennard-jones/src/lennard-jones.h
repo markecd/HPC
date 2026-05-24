@@ -62,7 +62,7 @@ double leapfrog_step(
     unsigned int n,
     double box_size
 );
-SimulationResult run_simulation(Particle *particles, unsigned int n, unsigned int nsteps, double box_size, int log_steps);
+SimulationResult run_simulation(Particle *particles, unsigned int n, unsigned int nsteps, double box_size, int log_steps, int use_gpu);
 
 #ifdef __cplusplus
 }
