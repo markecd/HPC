@@ -1,0 +1,268 @@
+nvcc -Wno-deprecated-gpu-targets -gencode=arch=compute_70,code=sm_70 -O3 -Xcompiler --openmp,-Wall -Isrc -c -o main.o src/main.c
+nvcc -Wno-deprecated-gpu-targets -gencode=arch=compute_70,code=sm_70 -O3 -Xcompiler --openmp,-Wall -Isrc lennard-jones.o gifenc.o main.o -o lj.out -lm
+===== CPU =====
+--- N=1000 ---
+
+Finished simulation.
+Final KE:   742.6950 | delta: +242.6950
+Final PE: -1617.3904 | delta: -242.6966
+Final E:   -874.6954 | delta: -0.0016
+Simulation time 5000 steps: 32.015 seconds
+
+Finished simulation.
+Final KE:   742.6950 | delta: +242.6950
+Final PE: -1617.3904 | delta: -242.6966
+Final E:   -874.6954 | delta: -0.0016
+Simulation time 5000 steps: 31.460 seconds
+
+Finished simulation.
+Final KE:   742.6950 | delta: +242.6950
+Final PE: -1617.3904 | delta: -242.6966
+Final E:   -874.6954 | delta: -0.0016
+Simulation time 5000 steps: 31.467 seconds
+
+Finished simulation.
+Final KE:   742.6950 | delta: +242.6950
+Final PE: -1617.3904 | delta: -242.6966
+Final E:   -874.6954 | delta: -0.0016
+Simulation time 5000 steps: 31.468 seconds
+
+Finished simulation.
+Final KE:   742.6950 | delta: +242.6950
+Final PE: -1617.3904 | delta: -242.6966
+Final E:   -874.6954 | delta: -0.0016
+Simulation time 5000 steps: 31.467 seconds
+--- N=2000 ---
+
+Finished simulation.
+Final KE:  1995.5621 | delta: +995.5621
+Final PE: -3205.3740 | delta: -995.6517
+Final E:  -1209.8119 | delta: -0.0896
+Simulation time 5000 steps: 113.520 seconds
+
+Finished simulation.
+Final KE:  1995.5621 | delta: +995.5621
+Final PE: -3205.3740 | delta: -995.6517
+Final E:  -1209.8119 | delta: -0.0896
+Simulation time 5000 steps: 113.510 seconds
+
+Finished simulation.
+Final KE:  1995.5621 | delta: +995.5621
+Final PE: -3205.3740 | delta: -995.6517
+Final E:  -1209.8119 | delta: -0.0896
+Simulation time 5000 steps: 113.554 seconds
+
+Finished simulation.
+Final KE:  1995.5621 | delta: +995.5621
+Final PE: -3205.3740 | delta: -995.6517
+Final E:  -1209.8119 | delta: -0.0896
+Simulation time 5000 steps: 113.484 seconds
+
+Finished simulation.
+Final KE:  1995.5621 | delta: +995.5621
+Final PE: -3205.3740 | delta: -995.6517
+Final E:  -1209.8119 | delta: -0.0896
+Simulation time 5000 steps: 113.529 seconds
+--- N=4000 ---
+
+Finished simulation.
+Final KE:  5056.1965 | delta: +3056.1965
+Final PE: -6596.8522 | delta: -3056.4458
+Final E:  -1540.6557 | delta: -0.2493
+Simulation time 5000 steps: 427.605 seconds
+
+Finished simulation.
+Final KE:  5056.1965 | delta: +3056.1965
+Final PE: -6596.8522 | delta: -3056.4458
+Final E:  -1540.6557 | delta: -0.2493
+Simulation time 5000 steps: 427.522 seconds
+
+Finished simulation.
+Final KE:  5056.1965 | delta: +3056.1965
+Final PE: -6596.8522 | delta: -3056.4458
+Final E:  -1540.6557 | delta: -0.2493
+Simulation time 5000 steps: 427.530 seconds
+
+Finished simulation.
+Final KE:  5056.1965 | delta: +3056.1965
+Final PE: -6596.8522 | delta: -3056.4458
+Final E:  -1540.6557 | delta: -0.2493
+Simulation time 5000 steps: 427.573 seconds
+
+Finished simulation.
+Final KE:  5056.1965 | delta: +3056.1965
+Final PE: -6596.8522 | delta: -3056.4458
+Final E:  -1540.6557 | delta: -0.2493
+Simulation time 5000 steps: 428.269 seconds
+--- N=8000 (1 run) ---
+
+Finished simulation.
+Final KE:  9688.1268 | delta: +5688.1268
+Final PE: -14712.9363 | delta: -5688.4532
+Final E:  -5024.8095 | delta: -0.3263
+Simulation time 5000 steps: 1667.273 seconds
+===== GPU =====
+--- N=1000 ---
+DEBUG: attempting cudaMalloc...
+DEBUG: cudaMalloc OK
+
+Finished simulation.
+Final KE:   742.0152 | delta: +242.0152
+Final PE: -1616.7050 | delta: -242.0112
+Final E:   -874.6898 | delta: +0.0040
+Simulation time 5000 steps: 3.826 seconds
+DEBUG: attempting cudaMalloc...
+DEBUG: cudaMalloc OK
+
+Finished simulation.
+Final KE:   742.0152 | delta: +242.0152
+Final PE: -1616.7050 | delta: -242.0112
+Final E:   -874.6898 | delta: +0.0040
+Simulation time 5000 steps: 3.740 seconds
+DEBUG: attempting cudaMalloc...
+DEBUG: cudaMalloc OK
+
+Finished simulation.
+Final KE:   742.0152 | delta: +242.0152
+Final PE: -1616.7050 | delta: -242.0112
+Final E:   -874.6898 | delta: +0.0040
+Simulation time 5000 steps: 3.738 seconds
+DEBUG: attempting cudaMalloc...
+DEBUG: cudaMalloc OK
+
+Finished simulation.
+Final KE:   742.0152 | delta: +242.0152
+Final PE: -1616.7050 | delta: -242.0112
+Final E:   -874.6898 | delta: +0.0040
+Simulation time 5000 steps: 3.738 seconds
+DEBUG: attempting cudaMalloc...
+DEBUG: cudaMalloc OK
+
+Finished simulation.
+Final KE:   742.0152 | delta: +242.0152
+Final PE: -1616.7050 | delta: -242.0112
+Final E:   -874.6898 | delta: +0.0040
+Simulation time 5000 steps: 3.741 seconds
+--- N=2000 ---
+DEBUG: attempting cudaMalloc...
+DEBUG: cudaMalloc OK
+
+Finished simulation.
+Final KE:  2002.7675 | delta: +1002.7675
+Final PE: -3212.5895 | delta: -1002.8673
+Final E:  -1209.8220 | delta: -0.0997
+Simulation time 5000 steps: 5.436 seconds
+DEBUG: attempting cudaMalloc...
+DEBUG: cudaMalloc OK
+
+Finished simulation.
+Final KE:  2002.7675 | delta: +1002.7675
+Final PE: -3212.5895 | delta: -1002.8673
+Final E:  -1209.8220 | delta: -0.0997
+Simulation time 5000 steps: 5.439 seconds
+DEBUG: attempting cudaMalloc...
+DEBUG: cudaMalloc OK
+
+Finished simulation.
+Final KE:  2002.7675 | delta: +1002.7675
+Final PE: -3212.5895 | delta: -1002.8673
+Final E:  -1209.8220 | delta: -0.0997
+Simulation time 5000 steps: 5.439 seconds
+DEBUG: attempting cudaMalloc...
+DEBUG: cudaMalloc OK
+
+Finished simulation.
+Final KE:  2002.7675 | delta: +1002.7675
+Final PE: -3212.5895 | delta: -1002.8673
+Final E:  -1209.8220 | delta: -0.0997
+Simulation time 5000 steps: 5.439 seconds
+DEBUG: attempting cudaMalloc...
+DEBUG: cudaMalloc OK
+
+Finished simulation.
+Final KE:  2002.7675 | delta: +1002.7675
+Final PE: -3212.5895 | delta: -1002.8673
+Final E:  -1209.8220 | delta: -0.0997
+Simulation time 5000 steps: 5.439 seconds
+--- N=4000 ---
+DEBUG: attempting cudaMalloc...
+DEBUG: cudaMalloc OK
+
+Finished simulation.
+Final KE:  5099.9528 | delta: +3099.9528
+Final PE: -6640.6255 | delta: -3100.2191
+Final E:  -1540.6726 | delta: -0.2663
+Simulation time 5000 steps: 8.381 seconds
+DEBUG: attempting cudaMalloc...
+DEBUG: cudaMalloc OK
+
+Finished simulation.
+Final KE:  5099.9528 | delta: +3099.9528
+Final PE: -6640.6255 | delta: -3100.2191
+Final E:  -1540.6726 | delta: -0.2663
+Simulation time 5000 steps: 8.379 seconds
+DEBUG: attempting cudaMalloc...
+DEBUG: cudaMalloc OK
+
+Finished simulation.
+Final KE:  5099.9528 | delta: +3099.9528
+Final PE: -6640.6255 | delta: -3100.2191
+Final E:  -1540.6726 | delta: -0.2663
+Simulation time 5000 steps: 8.378 seconds
+DEBUG: attempting cudaMalloc...
+DEBUG: cudaMalloc OK
+
+Finished simulation.
+Final KE:  5099.9528 | delta: +3099.9528
+Final PE: -6640.6255 | delta: -3100.2191
+Final E:  -1540.6726 | delta: -0.2663
+Simulation time 5000 steps: 8.379 seconds
+DEBUG: attempting cudaMalloc...
+DEBUG: cudaMalloc OK
+
+Finished simulation.
+Final KE:  5099.9528 | delta: +3099.9528
+Final PE: -6640.6255 | delta: -3100.2191
+Final E:  -1540.6726 | delta: -0.2663
+Simulation time 5000 steps: 8.385 seconds
+--- N=8000 ---
+DEBUG: attempting cudaMalloc...
+DEBUG: cudaMalloc OK
+
+Finished simulation.
+Final KE:  9688.0233 | delta: +5688.0233
+Final PE: -14712.8408 | delta: -5688.3577
+Final E:  -5024.8175 | delta: -0.3343
+Simulation time 5000 steps: 14.575 seconds
+DEBUG: attempting cudaMalloc...
+DEBUG: cudaMalloc OK
+
+Finished simulation.
+Final KE:  9688.0233 | delta: +5688.0233
+Final PE: -14712.8408 | delta: -5688.3577
+Final E:  -5024.8175 | delta: -0.3343
+Simulation time 5000 steps: 14.575 seconds
+DEBUG: attempting cudaMalloc...
+DEBUG: cudaMalloc OK
+
+Finished simulation.
+Final KE:  9688.0233 | delta: +5688.0233
+Final PE: -14712.8408 | delta: -5688.3577
+Final E:  -5024.8175 | delta: -0.3343
+Simulation time 5000 steps: 14.577 seconds
+DEBUG: attempting cudaMalloc...
+DEBUG: cudaMalloc OK
+
+Finished simulation.
+Final KE:  9688.0233 | delta: +5688.0233
+Final PE: -14712.8408 | delta: -5688.3577
+Final E:  -5024.8175 | delta: -0.3343
+Simulation time 5000 steps: 14.581 seconds
+DEBUG: attempting cudaMalloc...
+DEBUG: cudaMalloc OK
+
+Finished simulation.
+Final KE:  9688.0233 | delta: +5688.0233
+Final PE: -14712.8408 | delta: -5688.3577
+Final E:  -5024.8175 | delta: -0.3343
+Simulation time 5000 steps: 14.577 seconds

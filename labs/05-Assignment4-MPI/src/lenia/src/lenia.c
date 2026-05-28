@@ -87,7 +87,7 @@ inline double *convolve2d(double *result, const double *input, const double *w, 
 }
 
 // Function to evolve Lenia
-double *evolve_lenia(const unsigned int rows, const unsigned int cols, const unsigned int steps, const double dt, const unsigned int kernel_size, const struct orbium_coo *orbiums, const unsigned int num_orbiums)
+double *evolve_lenia(const unsigned int rows, const unsigned int cols, const unsigned int steps, const double dt, const unsigned int kernel_size, const struct orbium_coo *orbiums, const unsigned int num_orbiums, const int myid, const int procs)
 {
 
 #ifdef GENERATE_GIF
@@ -101,35 +101,77 @@ double *evolve_lenia(const unsigned int rows, const unsigned int cols, const uns
     );
 #endif
 
+    int rows_per_proc = rows / procs;
+    int my_start = myid * rows_per_proc;
+    int my_end = my_start + rows_per_proc;
     // Allocate memory
     double *w = (double *)calloc(kernel_size * kernel_size, sizeof(double));
-    double *world = (double *)calloc(rows * cols, sizeof(double));
-    double *tmp = (double *)calloc(rows * cols, sizeof(double));
+    double *local_world = calloc(rows_per_proc * cols, sizeof(double));
+    double *local_tmp   = calloc((rows_per_proc + 26) * cols, sizeof(double));
 
     // Generate convolution kernel
     w=generate_kernel(w,kernel_size);
 
-    // Place orbiums
-    for (unsigned int o = 0; o < num_orbiums; o++)
-    {
-        world = place_orbium(world, rows, cols, orbiums[o].row, orbiums[o].col, orbiums[o].angle);
+    for (int o = 0; o < num_orbiums; o++) {
+        if (orbiums[o].row >= my_start && orbiums[o].row < my_end) {
+            local_world = place_orbium(local_world, rows_per_proc, cols, orbiums[o].row - my_start, orbiums[o].col, orbiums[o].angle);
+        }
     }
+
+    int neighbour_above = (myid - 1 + procs) % procs;
+    int neighbour_below = (myid + 1) % procs;
+
+    double *ghost_bot = (double *)calloc(13 * cols, sizeof(double));
+    double *ghost_top = (double *)calloc(13 * cols, sizeof(double));
+
+    double *include_ghost_world = calloc((rows_per_proc + 26) * cols, sizeof(double));
 
     // Lenia Simulation
     for (unsigned int step = 0; step < steps; step++)
     {
+
+        // izmenjava ghost cells
+        MPI_Sendrecv(
+            &local_world[0],
+            13 * cols,
+            MPI_DOUBLE,
+            neighbour_above, 0,
+            &ghost_top[0],
+            13 * cols,
+            MPI_DOUBLE,
+            neighbour_above, 1,
+            MPI_COMM_WORLD,
+            MPI_STATUS_IGNORE
+        );
+
+        MPI_Sendrecv(
+            &local_world[(rows_per_proc - 13) * cols],
+            13 * cols,
+            MPI_DOUBLE,
+            neighbour_below, 1, 
+            &ghost_bot[0],
+            13 * cols,
+            MPI_DOUBLE,
+            neighbour_below, 0,
+            MPI_COMM_WORLD,
+            MPI_STATUS_IGNORE
+        );
+
+        memcpy(&include_ghost_world[0], ghost_top, 13*cols*sizeof(double));
+        memcpy(&include_ghost_world[13*cols], local_world, rows_per_proc*cols*sizeof(double));
+        memcpy(&include_ghost_world[(rows_per_proc + 13) * cols], ghost_bot, 13*cols*sizeof(double));
         // Convolution
-        tmp = convolve2d(tmp, world, w, rows, cols, kernel_size, kernel_size);
+        local_tmp = convolve2d(local_tmp, include_ghost_world, w, rows_per_proc + 26, cols, kernel_size, kernel_size);
         
         // Evolution
-        for (unsigned int i = 0; i < rows; i++)
+        for (unsigned int i = 0; i < rows_per_proc; i++)
         {
             for (unsigned int j = 0; j < cols; j++)
             {
-                world[i * rows + j] += dt * growth_lenia(tmp[i * rows + j]);
-                world[i * rows + j] = fmin(1, fmax(0, world[i * rows + j])); // Clip between 0 and 1
+                local_world[i * cols + j] += dt * growth_lenia(local_tmp[(i + 13) * cols + j]);
+                local_world[i * cols + j] = fmin(1, fmax(0, local_world[i * cols + j])); // Clip between 0 and 1
 #ifdef GENERATE_GIF
-                gif->frame[i * rows + j] = world[i * rows + j] * 255;
+                gif->frame[i * cols + j] = (uint8_t)(local_world[i * cols + j] * 255);
 #endif
             }
         }
@@ -141,6 +183,9 @@ double *evolve_lenia(const unsigned int rows, const unsigned int cols, const uns
     ge_close_gif(gif);
 #endif
     free(w);
-    free(tmp);
-    return world;
+    free(local_tmp);
+    free(ghost_top);
+    free(ghost_bot);
+    free(include_ghost_world);
+    return local_world;
 }
